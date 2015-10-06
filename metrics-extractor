@@ -28,9 +28,6 @@ def number_extractor(doc):
                 for token in chunk:
                     if  token.head.pos_ == 'VERB' and token.head.lemma_ not in ['be', 'have']:
                         del metrics[-1]
-                       # if token.ent_type_ == 'MONEY':
-                        #    metrics.append(': '.join([token.head.orth_, chunk.orth_]))
-                         #   return
                         if token in token.head.rights:
                             metrics.append(' '.join([token.head.orth_, chunk.orth_]))
                             return
