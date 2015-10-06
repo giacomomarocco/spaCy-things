@@ -1,0 +1,66 @@
+parser = argparse.ArgumentParser(description='Impact metrics extractor')
+parser.add_argument('Location', type=str, help='String of file path or URL of CSV')
+parser.add_argument('column_title', metavar='Column Title', help='Title of the column with the content to be analysed')
+args = parser.parse_args()
+
+
+def number_extractor(doc): 
+    for token in chunk:
+        if (token.pos_ == 'NUM' and token.ent_type_ not in ['DATE', 'TIME', 'ORG', 'PERCENT'])  or token.ent_type == 354826: #token.pos_ might be 'NOUN' 
+            if len(chunk) == 1: #If number is a noun chunk on its own
+                if len(doc)>=chunk.start+3:
+                    number_phrase = ' '.join([doc[chunk.start].orth_, doc[chunk.start+1].orth_, noun_chunks[index+1]]) #In order what the number is of, and preposition in between.
+                    if doc[chunk.start].head.pos_ == 'VERB' and doc[chunk.start].head.lemma_ not in ['be', 'have']: #What did this noun phrase do?
+                        if token in doc[chunk.start].head.rights: #TESTS WHETHER VERB IS BEFORE NOUN PHRASE and then inserts it there if it is.
+                            metrics.append(' '.join([doc[chunk.start].head.orth_, number_phrase]))
+                        else:
+                            metrics.append(' '.join([number_phrase, doc[chunk.start].head.orth_]))
+                    else: #If noun phrase is not linked to a verb (perhaps another method to find verb?)
+                        metrics.append(number_phrase)
+            elif chunk.orth_ not in metrics:   #If noun phrase contains more than just number
+                metrics.append(chunk.orth_)
+                for token in chunk:
+                    if  token.head.pos_ == 'VERB' and token.head.lemma_ not in ['be', 'have']:
+                        del metrics[-1]
+                       # if token.ent_type_ == 'MONEY':
+                        #    metrics.append(': '.join([token.head.orth_, chunk.orth_]))
+                         #   return
+                        if token in token.head.rights:
+                            metrics.append(' '.join([token.head.orth_, chunk.orth_]))
+                            return
+                        else:
+                            metrics.append(' '.join([chunk.orth_, token.head.orth_]))
+                            return
+                    if token.ent_type_ == 'MONEY' and token.head.head.pos_ == 'VERB' and token.head.lemma_ not in ['be', 'have']:
+                        del metrics[-1]
+                        metrics.append(': '.join([token.head.head.orth_, chunk.orth_]))
+                        return
+
+
+df = pd.read_csv(args.Location) #Loads CSV into a data frame
+extracted_metrics = [] #Array of metrics to be extracted from each source sentence
+source_sentences = df[args.column_title] #Array of source sentences from data frame (Change .source_sentence if using different column as source)
+
+for sentence in source_sentences: #Go sentence by sentence
+    doc = nlp(unicode(sentence, errors='ignore')) #Tokenize with spacy, and encode source text into unicode
+    noun_chunks = [] 
+    
+    for chunk in doc.noun_chunks:
+        noun_chunks.append(chunk.text) #List of all noun chunks in particular source (for indexing purposes)
+
+    metrics = [] #List of relevant metrics in particular source
+    for index, chunk in enumerate(doc.noun_chunks): 
+        number_extractor(doc)
+            
+    for index, token in enumerate(doc): #spacy does not include unit of money in noun chunk, so look for it seperately
+        if token.ent_type_ == 'MONEY':
+            if doc[index-1].pos_ == 'SYM': #if money number is preceded by unit in symbol form
+                money = ''.join([doc[index-1].orth_, doc[index].orth_])
+                metrics.append(' '.join([money, token.head.orth_]))
+                
+    if len(metrics) == 0: #if nothing was extracted
+        metrics.append('-')
+    extracted_metrics.append(', '.join(metrics)) 
+
+df['Extracted Metrics'] = extracted_metrics #Create new column with extracted metrics
+df.to_csv(args.Location) #Save file
