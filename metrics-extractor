@@ -1,3 +1,9 @@
+import argparse
+import pandas as pd
+from spacy.en import English
+
+nlp = English()
+
 parser = argparse.ArgumentParser(description='Impact metrics extractor')
 parser.add_argument('Location', type=str, help='String of file path or URL of CSV')
 parser.add_argument('column_title', metavar='Column Title', help='Title of the column with the content to be analysed')
